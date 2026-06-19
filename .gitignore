@@ -11,3 +11,17 @@ client/node_modules/
 .DS_Store
 __pycache__/
 *.pyc
+
+# Next.js build output
+client/.next/
+
+# Local Linux LiveKit binary (download via scripts/get-livekit.sh; the
+# committed .exe is for the Windows demo machine)
+livekit-server/livekit-server
+
+# Documentation and Briefs
+claude.md
+Capstone_VoiceAI_Agent_Brief.pdf
+prd.md
+style.md
+arch.md
