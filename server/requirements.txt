@@ -1,0 +1,19 @@
+# Clara – Avery Wellness Clinic Voice Agent
+# Install with: pip install -r requirements.txt
+
+# ── LiveKit Agents core + plugins ──────────────────────────────────────────
+livekit-agents[deepgram,openai,silero]>=0.8.0,<1.0.0
+
+# LiveKit token generation (required by api.py for browser test-call)
+livekit-api>=0.2.0
+
+# ── Admin API ─────────────────────────────────────────────────────────────
+fastapi>=0.111.0
+uvicorn[standard]>=0.30.0
+
+# ── Database ──────────────────────────────────────────────────────────────
+# asyncpg is mandatory per arch.md — never use synchronous psycopg2 in voice threads
+asyncpg>=0.29.0
+
+# ── Utilities ─────────────────────────────────────────────────────────────
+python-dotenv>=1.0.0

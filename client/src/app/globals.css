@@ -1,0 +1,35 @@
+/* Google Fonts — must come before @tailwind directives */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --lk-theme-color: #0891b2; /* cyan-600 — matches Clara brand primary */
+  }
+
+  html {
+    @apply antialiased;
+  }
+
+  body {
+    @apply bg-slate-50 text-slate-900 font-sans;
+  }
+}
+
+/* Thin scrollbar for the terminal log pane */
+@layer utilities {
+  .scrollbar-terminal::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .scrollbar-terminal::-webkit-scrollbar-track {
+    @apply bg-slate-900;
+  }
+
+  .scrollbar-terminal::-webkit-scrollbar-thumb {
+    @apply bg-slate-700 rounded;
+  }
+}
