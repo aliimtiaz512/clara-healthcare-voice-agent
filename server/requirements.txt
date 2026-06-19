@@ -2,10 +2,13 @@
 # Install with: pip install -r requirements.txt
 
 # ── LiveKit Agents core + plugins ──────────────────────────────────────────
-livekit-agents[deepgram,openai,silero]>=0.8.0,<1.0.0
+# 1.x ships the modern Agent / AgentSession API used in agent.py.
+# Extras pull in the Deepgram (STT + Aura TTS), OpenAI-compatible LLM
+# (used here as the Groq shim), and Silero VAD plugins.
+livekit-agents[deepgram,openai,silero]>=1.0.0,<2.0.0
 
-# LiveKit token generation (required by api.py for browser test-call)
-livekit-api>=0.2.0
+# LiveKit token generation (required by api.py for the browser test-call)
+livekit-api>=0.8.0
 
 # ── Admin API ─────────────────────────────────────────────────────────────
 fastapi>=0.111.0

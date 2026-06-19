@@ -86,7 +86,7 @@ async def check_availability(specialty: str) -> str:
         JOIN   doctors      d ON d.id = a.doctor_id
         WHERE  LOWER(d.specialty) = LOWER($1)
           AND  a.is_booked = FALSE
-        ORDER  BY d.name, a.slot_time;
+        ORDER  BY d.name, to_timestamp(a.slot_time, 'HH12:MI AM');
     """
 
     try:
@@ -263,6 +263,151 @@ async def book_appointment(
         f"You're all set, {patient_name}. Your appointment with {doctor_name} "
         f"at {slot_time} is confirmed. Your reference code is {code_spoken}. "
         "Please have that ready when you arrive."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Tool: lookup_insurance
+# ---------------------------------------------------------------------------
+
+# Insurance carriers Avery Wellness Clinic is in-network with. Mock data is
+# perfectly acceptable per the brief — what matters is the tool works reliably
+# and is triggered naturally in conversation.
+_ACCEPTED_INSURANCE: dict[str, str] = {
+    "aetna": "Aetna",
+    "blue cross": "Blue Cross Blue Shield",
+    "blue cross blue shield": "Blue Cross Blue Shield",
+    "bcbs": "Blue Cross Blue Shield",
+    "cigna": "Cigna",
+    "unitedhealthcare": "UnitedHealthcare",
+    "united healthcare": "UnitedHealthcare",
+    "united": "UnitedHealthcare",
+    "medicare": "Medicare",
+    "humana": "Humana",
+}
+
+# Common carriers we are explicitly out-of-network with (for a natural "no").
+_NOT_ACCEPTED = {"kaiser", "kaiser permanente", "medicaid", "tricare"}
+
+
+async def lookup_insurance(provider: str) -> str:
+    """
+    Check whether the clinic accepts a given insurance provider.
+
+    Args:
+        provider: The carrier name as spoken by the caller, e.g. "Aetna".
+
+    Returns:
+        A short, spoken-style string Clara can read back confirming whether the
+        provider is in-network.
+    """
+    logger.info("lookup_insurance called | provider=%r", provider)
+    key = provider.strip().lower()
+
+    if key in _ACCEPTED_INSURANCE:
+        canonical = _ACCEPTED_INSURANCE[key]
+        return (
+            f"Good news — yes, we're in-network with {canonical}, so you're all set "
+            "to book. Would you like me to find you an opening?"
+        )
+
+    if key in _NOT_ACCEPTED:
+        return (
+            f"Unfortunately we're not in-network with {provider.strip()} right now, "
+            "but you're welcome to book as a self-pay patient. Would you like to?"
+        )
+
+    # Unknown carrier — be honest rather than guess.
+    return (
+        f"I'm not certain whether we take {provider.strip()} — our front desk can "
+        "confirm that for you. In the meantime, would you like me to check availability?"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Tool: cancel_appointment
+# ---------------------------------------------------------------------------
+
+
+async def cancel_appointment(appointment_code: str) -> str:
+    """
+    Cancel an existing appointment by reference code and free the timeslot.
+
+    Steps (inside a single transaction):
+      1. Locate the appointment by its (normalised) reference code.
+      2. Free the matching availability slot (is_booked -> FALSE).
+      3. Delete the appointment record.
+
+    Args:
+        appointment_code: The reference code, e.g. "AV-9421" (dash optional).
+
+    Returns:
+        A spoken confirmation string, or a polite message if the code wasn't found.
+    """
+    logger.info("cancel_appointment called | code=%r", appointment_code)
+
+    # Normalise: strip spaces, uppercase, and re-insert the dash if missing.
+    raw = appointment_code.strip().upper().replace(" ", "").replace("-", "")
+    if raw.startswith("AV") and len(raw) > 2:
+        code = f"AV-{raw[2:]}"
+    else:
+        code = appointment_code.strip().upper()
+
+    pool = await get_pool()
+
+    try:
+        async with pool.acquire() as conn:
+            async with conn.transaction():
+                appt = await conn.fetchrow(
+                    """
+                    SELECT a.id, a.patient_name, a.slot_time, a.doctor_id,
+                           d.name AS doctor_name
+                    FROM   appointments a
+                    JOIN   doctors      d ON d.id = a.doctor_id
+                    WHERE  a.appointment_code = $1
+                    FOR UPDATE;
+                    """,
+                    code,
+                )
+
+                if appt is None:
+                    logger.warning("cancel_appointment: code not found | code=%r", code)
+                    return (
+                        f"I couldn't find an appointment under {code.replace('-', ' dash ')}. "
+                        "Could you read me that reference code again?"
+                    )
+
+                # Free the slot back up
+                await conn.execute(
+                    """
+                    UPDATE availability
+                    SET    is_booked = FALSE
+                    WHERE  doctor_id = $1 AND slot_time = $2;
+                    """,
+                    appt["doctor_id"],
+                    appt["slot_time"],
+                )
+
+                # Remove the appointment record
+                await conn.execute(
+                    "DELETE FROM appointments WHERE id = $1;", appt["id"]
+                )
+
+                logger.info(
+                    "Appointment cancelled | code=%s patient=%r doctor=%r slot=%r",
+                    code, appt["patient_name"], appt["doctor_name"], appt["slot_time"],
+                )
+
+    except asyncpg.PostgresError as exc:
+        logger.error("cancel_appointment DB error: %s", exc)
+        return (
+            "I'm sorry, I hit a snag cancelling that. Please try again in a moment."
+        )
+
+    return (
+        f"Done — I've cancelled the appointment for {appt['patient_name']} with "
+        f"{appt['doctor_name']} at {appt['slot_time']}, and that time is open again. "
+        "Is there anything else I can help with?"
     )
 
 

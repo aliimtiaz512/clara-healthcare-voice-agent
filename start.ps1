@@ -49,7 +49,7 @@ Write-Host "  LiveKit    →  ws://localhost:7880" -ForegroundColor White
 Write-Host ""
 Write-Host "  To start the voice agent (in a new terminal):" -ForegroundColor Yellow
 Write-Host "    cd server" -ForegroundColor White
-Write-Host "    .\.venv\Scripts\python.exe agent.py start" -ForegroundColor White
+Write-Host "    ..\.venv\Scripts\python.exe agent.py dev" -ForegroundColor White
 Write-Host "==================================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Press Ctrl+C to stop all services." -ForegroundColor Gray
